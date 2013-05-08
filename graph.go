@@ -103,7 +103,7 @@ func (graph *Graph) Create(layerData Archive, container *Container, comment, aut
 	if err := graph.Register(layerData, img); err != nil {
 		return nil, err
 	}
-	img.Checksum()
+	go img.Checksum()
 	return img, nil
 }
 

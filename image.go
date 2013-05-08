@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -27,6 +28,7 @@ type Image struct {
 	Author          string    `json:"author,omitempty"`
 	Config          *Config   `json:"config,omitempty"`
 	graph           *Graph
+	checksumLock    *sync.Mutex
 }
 
 func LoadImage(root string) (*Image, error) {
@@ -35,8 +37,11 @@ func LoadImage(root string) (*Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	var img Image
-	if err := json.Unmarshal(jsonData, &img); err != nil {
+	img := &Image{
+		checksumLock: &sync.Mutex{},
+	}
+
+	if err := json.Unmarshal(jsonData, img); err != nil {
 		return nil, err
 	}
 	if err := ValidateId(img.Id); err != nil {
@@ -53,7 +58,7 @@ func LoadImage(root string) (*Image, error) {
 		return nil, fmt.Errorf("Couldn't load image %s: %s is not a directory", img.Id, layerPath(root))
 	}
 
-	return &img, nil
+	return img, nil
 }
 
 func StoreImage(img *Image, layerData Archive, root string) error {
@@ -261,6 +266,9 @@ func (img *Image) layer() (string, error) {
 }
 
 func (img *Image) Checksum() (string, error) {
+	img.checksumLock.Lock()
+	defer img.checksumLock.Unlock()
+
 	root, err := img.root()
 	if err != nil {
 		return "", err
